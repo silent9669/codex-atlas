@@ -1,6 +1,7 @@
 import json
 import pathlib
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'skills/atlas/scripts'))
@@ -27,6 +28,7 @@ class EvidenceTest(unittest.TestCase):
             # generic DOM helpers, which this viewer does not call.
             self.assertNotIn('innerHTML', (pathlib.Path(__file__).resolve().parents[1] / 'skills/atlas/scripts/atlaslib/viewer.js').read_text())
             self.assertIn('\\u003c/script', html)
+
     def test_html_renderer_refuses_symlink_output(self):
         with tempfile.TemporaryDirectory() as temp:
             root = pathlib.Path(temp).resolve()
@@ -35,4 +37,3 @@ class EvidenceTest(unittest.TestCase):
             graph = {'nodes': [], 'edges': [], 'diagnostics': [], 'snapshot': {'hash': 'test', 'files': {}}, 'workspace': {}}
             with self.assertRaises(ValueError): render(graph, output)
             self.assertEqual(target.read_text(), 'preserve')
-
