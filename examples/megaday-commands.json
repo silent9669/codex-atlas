@@ -1,0 +1,7 @@
+[
+  {"name": "backend-check", "cwd": "backend", "argv": ["uv", "run", "python", "tasks.py", "check"], "timeout": 600},
+  {"name": "web-lint", "cwd": "web", "argv": ["npm", "run", "lint"], "timeout": 600},
+  {"name": "web-typecheck", "cwd": "web", "argv": ["npm", "run", "typecheck"], "timeout": 600},
+  {"name": "web-tests", "cwd": "web", "argv": ["npm", "test"], "timeout": 600},
+  {"name": "web-build", "cwd": "web", "argv": ["npm", "run", "build"], "timeout": 600}
+]

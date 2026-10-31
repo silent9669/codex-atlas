@@ -1,0 +1,10 @@
+node_modules/
+.atlas/
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+artifacts/

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codex-atlas",
+  "version": "0.1.0",
+  "description": "Local repository graphs, cited Codex context, impact analysis, and verification evidence.",
+  "author": {"name": "silent9669"},
+  "interface": {
+    "displayName": "Codex Atlas",
+    "shortDescription": "Repository context and evidence graphs",
+    "longDescription": "Build a bounded, evidence-aware repository graph that helps Codex inspect decisions, plans, source, APIs, UI, tests, commits, checks, and drift. Atlas is local-first and labels observations, inferences, freshness, and blocked prerequisites separately.",
+    "category": "Developer tools",
+    "developerName": "silent9669"
+  }
+}

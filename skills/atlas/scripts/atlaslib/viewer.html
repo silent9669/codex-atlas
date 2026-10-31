@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="icon" href="data:,">
+<title>Codex Atlas</title>
+<style>
+:root{--bg:#f4f5f6;--surface:#fff;--ink:#202d30;--muted:#4c6266;--line:#cbd6d8;--accent:#12615c;--focus:#ca4617}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}header{border-bottom:1px solid var(--line);padding:24px 4vw;display:flex;align-items:center;justify-content:space-between;gap:16px}h1{font-size:24px;margin:0;letter-spacing:-.04em}h2{font-size:20px;overflow-wrap:anywhere;margin:0 0 12px}h3{font-size:16px;margin:20px 0 8px}p{margin:8px 0}main{display:grid;grid-template-columns:minmax(240px,31%) minmax(0,1fr);gap:24px;margin:24px 4vw}section,aside{min-width:0}.panel{background:var(--surface);border:1px solid var(--line);padding:20px}label{font-weight:600;display:block;margin-bottom:8px}input{width:100%;font:inherit;border:1px solid var(--muted);padding:12px;background:var(--surface);color:var(--ink)}button{font:inherit;color:var(--ink);background:transparent;border:0;text-align:left;cursor:pointer;overflow-wrap:anywhere}button:hover{background:#e7f1ef}button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:2px}button[aria-pressed=true]{background:#e0eeeb;box-shadow:inset 3px 0 var(--accent)}#nodes{list-style:none;padding:0;max-height:68vh;overflow:auto;margin:12px 0}#nodes button{width:100%;padding:12px;border-bottom:1px solid var(--line)}.type{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}.stats{font-variant-numeric:tabular-nums;color:var(--muted)}code{font:13px ui-monospace,monospace;overflow-wrap:anywhere}.hash{color:var(--muted);font-size:13px}#edges{list-style:none;padding:0}#edges>li{border-top:1px solid var(--line);padding:14px 0}#edges button{font-family:ui-monospace,monospace;color:var(--accent);text-decoration:underline;padding:0}.evidence{color:var(--muted);font-size:13px}details{border-top:1px solid var(--line);padding-top:16px;margin-top:24px}summary{cursor:pointer;font-weight:600}#diagnostics{padding-left:20px;overflow-wrap:anywhere}.status{display:inline-block;padding:2px 8px;border:1px solid var(--line);font-size:12px}.empty{color:var(--muted)}@media(max-width:700px){header{align-items:flex-start;flex-direction:column;padding:20px}main{grid-template-columns:1fr;margin:16px;gap:16px}#nodes{max-height:32vh}.panel{padding:16px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+<style>#detail p{overflow-wrap:anywhere}#title:focus{outline:none}</style>
+</head>
+<body>
+<header><h1>Codex Atlas</h1><div><div id="stats" class="stats"></div><div id="snapshot" class="hash"></div></div></header>
+<main>
+<aside class="panel"><label for="search">Search repository</label><input id="search" type="search" autocomplete="off"><p id="count" role="status" class="stats"></p><ul id="nodes" aria-label="Repository nodes"></ul></aside>
+<section class="panel"><h2 id="title" tabindex="-1">Select a node</h2><div id="detail"></div><ul id="edges" aria-label="Observed relationships"></ul><details><summary id="diagnostic-title">Extraction diagnostics</summary><ul id="diagnostics"></ul></details></section>
+</main>
+<script>
+'use strict';
+const graph = ATLAS_GRAPH_DATA;
+const byId = new Map(graph.nodes.map(n => [n.id,n]));
+const el = id => document.getElementById(id);
+const append = (parent, tag, value, className) => {const node=document.createElement(tag);node.textContent=value;if(className)node.className=className;parent.append(node);return node;};
+let selected=null;
+el('stats').textContent=`${graph.nodes.length} nodes · ${graph.edges.length} relationships`;
+el('snapshot').textContent=`Snapshot ${graph.snapshot.hash.slice(0,12)} · ${graph.snapshot.commit ? graph.snapshot.commit.slice(0,8) : 'uncommitted'}`;
+function renderList(){
+  const q=el('search').value.toLowerCase();
+  const matches=graph.nodes.filter(n => [n.path,n.symbol,n.type,n.label].join(' ').toLowerCase().includes(q)).sort((a,b)=>(a.type==='commit')-(b.type==='commit') || a.path.localeCompare(b.path));
+  el('count').textContent=`${matches.length} matches${matches.length>100?' · first 100 shown':''}`;
+  el('nodes').replaceChildren();
+  if(!matches.length)append(el('nodes'),'li','No matching nodes.','empty');
+  matches.slice(0,100).forEach(n=>{const li=append(el('nodes'),'li','');const button=append(li,'button','');button.type='button';button.setAttribute('aria-pressed',String(n.id===selected));append(button,'span',n.type,'type');append(button,'span',(n.path||n.label)+(n.symbol&&n.type!=='commit'?' :: '+n.symbol:''));button.addEventListener('click',()=>show(n));});
+}
+function show(n){
+  selected=n.id;el('title').textContent=n.label;el('detail').replaceChildren();el('edges').replaceChildren();
+  append(el('detail'),'p',n.path ? `${n.path}:${n.line}` : n.id);
+  append(el('detail'),'span',n.type+' · observed structure','status');
+  append(el('detail'),'p','Content '+(n.content_hash||'unavailable'),'hash');
+  const edges=graph.edges.filter(e=>e.source===n.id||e.target===n.id);
+  append(el('detail'),'h3',`Relationships (${edges.length})`);
+  if(!edges.length)append(el('edges'),'li','No observed relationships.','empty');
+  edges.slice(0,100).forEach(e=>{
+    const li=append(el('edges'),'li','');const other=e.source===n.id?e.target:e.source;append(li,'span',`${e.type} · ${e.origin} · ${e.confidence}`,'type');
+    const button=append(li,'button',other);button.type='button';button.disabled=!byId.has(other);button.addEventListener('click',()=>show(byId.get(other)));
+    append(li,'p',e.explanation);append(li,'p',e.evidence.map(c=>`${c.path}:${c.line}`).join(', '),'evidence');
+  });
+  if(edges.length>100)append(el('edges'),'li',`${edges.length-100} more relationships in graph.json.`);
+  renderList();
+  el('title').focus({preventScroll:true});
+}
+const diagnostics=el('diagnostics');
+el('diagnostic-title').textContent=`Extraction diagnostics (${graph.diagnostics.length})`;
+for(const d of graph.diagnostics)append(diagnostics,'li',`${d.kind} · ${d.path||''}:${d.line||''} · ${d.message}`);
+if(!graph.diagnostics.length)append(diagnostics,'li','None recorded.');
+el('search').addEventListener('input',renderList);renderList();
+</script>
+</body>
+</html>

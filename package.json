@@ -1,0 +1,12 @@
+{
+  "name": "codex-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local repository context and verification graphs for Codex",
+  "scripts": {
+    "test": "python3 -m unittest discover -s tests -v",
+    "check": "python3 -m compileall -q skills/atlas/scripts && node --check skills/atlas/scripts/typescript.cjs && python3 -m unittest discover -s tests -v"
+  },
+  "dependencies": {"typescript": "5.9.3"},
+  "engines": {"node": ">=20", "npm": ">=10"}
+}
