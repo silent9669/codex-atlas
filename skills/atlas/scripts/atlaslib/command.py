@@ -7,6 +7,8 @@ def parse(message):
     if not tokens or tokens.pop(0) != '/codex-atlas':
         raise ValueError('Use /codex-atlas followed by a task.')
     options = {'run': False, 'allow_edits': False, 'model': None}
+    action = tokens.pop(0) if tokens and tokens[0] in {'docs', 'audit', 'organize', 'memory'} else None
+    if action: options['action'] = action
     parts = []
     for token in tokens:
         key, separator, value = token.partition('=')
@@ -18,6 +20,7 @@ def parse(message):
                 options['run' if key == 'RUN' else 'allow_edits'] = value.lower() == 'true'
         else: parts.append(token)
     task = ' '.join(parts).strip()
+    if not task and action: task = action
     if not task: raise ValueError('Add a task after /codex-atlas.')
     if options['allow_edits'] and not options['run']:
         raise ValueError('ALLOW_EDITS=true requires RUN=true.')

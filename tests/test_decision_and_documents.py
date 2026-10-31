@@ -55,8 +55,8 @@ class DecisionDocumentsTest(unittest.TestCase):
         self.assertEqual(report['limits']['requests'], 0)
         self.assertEqual(report['origin'], 'deterministic')
 
-    def test_live_decision_blocks_without_a_local_key(self):
-        with patch.dict('os.environ', {}, clear=True):
+    def test_live_decision_blocks_when_codex_is_unavailable(self):
+        with patch.dict('os.environ', {}, clear=True), patch('atlaslib.decision.codex_response', side_effect=ValueError('Codex unavailable')):
             report = decide(self.root, self.graph, 'Choose a document organization strategy', live=True)
         self.assertEqual(report['status'], 'blocked')
         self.assertNotIn('test-key', json.dumps(report))
