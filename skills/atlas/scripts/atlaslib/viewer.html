@@ -15,61 +15,60 @@
   </head>
   <body>
     <div class="shell">
+      <header class="topbar">
+        <div class="header-identity">
       <div class="brand">
         <svg viewBox="0 0 28 28" aria-hidden="true">
           <path d="M5 21L13 5l10 16H5l14-10" />
           <circle cx="5" cy="21" r="2.5" />
           <circle cx="13" cy="5" r="2.5" />
           <circle cx="23" cy="21" r="2.5" /></svg
-        >Codex Atlas
+        ><span class="brand-label">Codex Atlas</span>
       </div>
-      <header class="topbar">
-        <div class="breadcrumb">
-          Workspace <span aria-hidden="true"> / </span>
-          <strong id="repo-breadcrumb"></strong>
+          <div class="breadcrumb"><strong id="repo-breadcrumb"></strong></div>
         </div>
-        <div class="local-status">Local workspace</div>
+        <nav class="side-nav" aria-label="Workspace">
+          <button data-view="workspace"><span data-icon="overview"></span>Overview</button>
+
+          <button data-view="documents" aria-current="page"><span data-icon="files"></span>Documents<span class="count" id="side-doc-count"></span></button>
+          <button data-view="graph"><span data-icon="graph"></span>Graph</button>
+          <button data-view="runs"><span data-icon="terminal"></span>Runs</button>
+          <button data-view="memory"><span data-icon="inspect"></span>Memory</button>
+          <button data-view="audit"><span data-icon="audit"></span>Audit<span class="count" id="side-audit-count"></span></button>
+        </nav>
+        <div class="header-actions">
+        <button id="command-open" class="command-launch" aria-label="Commands" title="Commands (⌘K)"><span data-icon="terminal"></span><span class="command-label">Commands</span> <kbd>⌘K</kbd></button>
+          <button id="chat-toggle" class="primary row" aria-label="Assistant"><span data-icon="chat"></span><span class="chat-label">Assistant</span></button>
+        </div>
       </header>
       <aside class="sidebar">
         <div class="workspace-name">
-          <div class="repo-avatar" aria-hidden="true">M</div>
+
           <div>
             <div class="repo-name" id="repo-name"></div>
             <div class="muted small" id="repo-branch"></div>
           </div>
         </div>
-        <div>
-          <div class="side-heading">Workspace</div>
-          <nav class="side-nav" aria-label="Workspace">
-            <button data-view="graph" aria-current="page">
-              <span data-icon="graph"></span>Repository map</button
-            ><button data-view="documents">
-              <span data-icon="files"></span>Documents<span
-                class="count"
-                id="side-doc-count"
-              ></span></button
-            ><button data-view="audit">
-              <span data-icon="audit"></span>Audit &amp; evidence<span
-                class="count"
-                id="side-audit-count"
-              ></span></button
-            ><button data-view="decision">
-              <span data-icon="spark"></span>Decision studio
-            </button>
-          </nav>
-        </div>
-        <div>
-          <div class="side-heading">Graph layers</div>
-          <div id="layer-nav" class="side-nav"></div>
-        </div>
-        <div class="side-bottom">
-          <div class="row">
-            <span data-icon="terminal"></span
-            ><span class="small">Use $codex-atlas</span>
+
+        <section id="library-browser" aria-label="Document library">
+          <div class="library-heading"><span id="document-count" role="status"></span><button id="library-expand" class="flat">Expand all</button></div>
+          <div id="document-category-heading" class="category-heading"></div>
+          <div class="section-toolbar">
+            <input
+              type="search"
+              id="document-search"
+              aria-label="Search documents"
+              placeholder="Search documents…"
+            /><details class="document-filters"><summary>Filters</summary><div class="filter-options"><select id="document-category" aria-label="Document category"><option value="all">All categories</option></select><select id="document-type" aria-label="Document type">
+              <option value="all">All documents</option></select
+            ><select id="document-topic" aria-label="Document topic"><option value="all">All topics</option></select><select id="document-status" aria-label="Document status"><option value="all">All statuses</option></select><button id="document-organize" class="flat">Organize with AI</button></div></details>
           </div>
+          <div id="document-table" class="note-list"></div>
+        </section>
+        <div class="side-bottom">
+
           <div
-            class="small muted"
-            style="margin-top: 8px"
+            class="sr-only"
             id="sidebar-snapshot"
           ></div>
         </div>
@@ -77,56 +76,16 @@
       <main class="sheet">
         <div class="page-head">
           <div class="row spread">
-            <div><h1 id="page-title">Repository map</h1></div>
-            <div class="row"><button class="tool-button" data-view="documents"><span data-icon="files"></span><span class="tool-label">Docs</span></button><button class="tool-button" data-view="audit"><span data-icon="audit"></span><span class="tool-label">Audit</span></button><button class="tool-button" data-view="decision"><span data-icon="spark"></span><span class="tool-label">Decide</span></button><button id="chat-toggle" class="row" hidden><span data-icon="spark"></span>Ask Atlas</button><button id="export-graph" class="row">
-              <span data-icon="download"></span>Export graph
-            </button></div>
+            <div class="row"><button id="library-toggle" class="flat" aria-expanded="false">Library</button><h1 id="page-title">Documents</h1></div>
+            <div class="row"><button id="export-graph" class="flat">Export</button></div>
           </div>
           <div class="page-meta" id="page-meta"></div>
-          <div class="tabbar" role="tablist" aria-label="Workspace views">
-            <button
-              role="tab"
-              id="tab-graph"
-              data-view="graph"
-              aria-selected="true"
-              aria-controls="view-graph"
-            >
-              Map</button
-            ><button
-              role="tab"
-              id="tab-documents"
-              data-view="documents"
-              aria-selected="false"
-              aria-controls="view-documents"
-              tabindex="-1"
-            >
-              Documents</button
-            ><button
-              role="tab"
-              id="tab-audit"
-              data-view="audit"
-              aria-selected="false"
-              aria-controls="view-audit"
-              tabindex="-1"
-            >
-              Audit &amp; evidence</button
-            ><button
-              role="tab"
-              id="tab-decision"
-              data-view="decision"
-              aria-selected="false"
-              aria-controls="view-decision"
-              tabindex="-1"
-            >
-              Decision studio
-            </button>
-          </div>
         </div>
+        <section class="panel" id="view-workspace" aria-label="Repository overview" hidden><div id="workspace-overview" class="workspace-overview"></div></section>
         <section
           class="panel"
           id="view-graph"
-          role="tabpanel"
-          aria-labelledby="tab-graph"
+          aria-label="Repository graph"
         >
           <div class="graph-layout">
             <div class="graph-main">
@@ -138,12 +97,13 @@
                   placeholder="Search paths, symbols…"
                 /><select id="graph-scope" aria-label="Graph scope">
                   <option value="architecture">Connected files</option>
-                  <option value="documents">Decisions &amp; plans</option>
+                  <option value="documents">Documents</option>
                   <option value="source">Source &amp; APIs</option>
                   <option value="test">Tests</option>
                   <option value="all">All file nodes</option></select
-                ><button id="focus-node" disabled class="small">Focus</button>
+                ><select id="graph-relationship" aria-label="Relationship type"><option value="all">All relationships</option><option value="references">Document links</option><option value="depends_on">Imports</option><option value="tested_by">Test candidates</option><option value="verified_by">Verification evidence</option></select><button id="focus-node" disabled class="small">Focus</button><select id="graph-presentation" aria-label="Graph presentation"><option value="graph">Graph</option><option value="list">List</option></select>
               </div>
+              <div id="graph-list" class="graph-list" hidden></div>
               <div class="canvas-wrap">
                 <svg
                   id="network"
@@ -159,82 +119,31 @@
               </div>
               <div class="legend" id="graph-legend"></div>
             </div>
-            <aside class="inspector" aria-label="Node inspector">
-              <div class="inspector-head">
-                <span data-icon="inspect"></span>Inspector
-              </div>
-              <div
-                class="inspector-body"
-                id="inspector"
-                aria-live="polite"
-              ></div>
-            </aside>
+
           </div>
-          <div class="work-row">
-            <div class="work-block">
-              <div class="row spread">
-                <h3>Decisions &amp; plans</h3>
-                <button data-view="documents" class="flat small">
-                  View all ↗
-                </button>
-              </div>
-              <div id="document-preview"></div>
-            </div>
-            <div class="work-block">
-              <div class="row spread">
-                <h3>Evidence attention</h3>
-                <button data-view="audit" class="flat small">
-                  Open audit ↗
-                </button>
-              </div>
-              <div id="audit-preview"></div>
-            </div>
-          </div>
+        </section>
+        <section class="panel" id="view-inspector" aria-label="Selected file" hidden>
+          <div class="inspector-body" id="inspector"></div>
         </section>
         <section
           class="panel"
           id="view-documents"
-          role="tabpanel"
-          aria-labelledby="tab-documents"
+          aria-label="Documents"
           hidden
         >
-          <div class="section-toolbar">
-            <input
-              type="search"
-              id="document-search"
-              aria-label="Search documents"
-              placeholder="Search documents…"
-            /><select id="document-type" aria-label="Document type">
-              <option value="all">All documents</option></select
-            ><select id="document-topic" aria-label="Document topic"><option value="all">All topics</option></select><select id="document-status" aria-label="Document status"><option value="all">All statuses</option></select><span class="muted small" id="document-count" role="status"></span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Document</th>
-                  <th>Type</th>
-                  <th>Labels</th>
-                  <th class="doc-extra">Review signals</th>
-                  <th class="num doc-extra">Sections</th>
-                </tr>
-              </thead>
-              <tbody id="document-table"></tbody>
-            </table>
-          </div>
+          <article id="document-reader" class="document-reader"></article><details id="document-outline" class="document-outline"><summary>Contents</summary><nav aria-label="Document contents"></nav></details>
         </section>
         <section
           class="panel"
           id="view-audit"
-          role="tabpanel"
-          aria-labelledby="tab-audit"
+          aria-label="Audit"
           hidden
         >
           <div class="summary-strip" id="audit-summary"></div>
           <div class="audit-layout">
             <div>
               <div class="row spread">
-                <h2>Evidence &amp; extraction findings</h2>
+                <h2>Findings</h2>
                 <select id="audit-filter" aria-label="Audit finding filter">
                   <option value="all">All findings</option>
                   <option value="stale">Stale evidence</option>
@@ -243,129 +152,51 @@
               </div>
               <div id="audit-findings" class="audit-findings"></div>
             </div>
-            <aside class="audit-policy">
-              <h3>What the evidence establishes</h3>
-              <dl>
-                <dt>Origin</dt>
-                <dd>
-                  A parsed import or explicit document link. Semantic
-                  relationships require review.
-                </dd>
-                <dt>Command result</dt>
-                <dd>
-                  A check passed, failed, or was blocked for the recorded
-                  snapshot.
-                </dd>
-                <dt>Freshness</dt>
-                <dd>
-                  Current evidence matches the repository, runtime, command map,
-                  and artifacts.
-                </dd>
-              </dl>
-              <button id="audit-codex" style="margin-top: 20px; width: 100%">
-                Prepare Codex audit
-              </button>
-            </aside>
+            <button id="audit-codex">Audit implementation &amp; docs</button>
           </div>
         </section>
-        <section
-          class="panel"
-          id="view-decision"
-          role="tabpanel"
-          aria-labelledby="tab-decision"
-          hidden
-        >
-          <div class="decision-layout">
-            <div>
-              <label for="decision-task">Implementation decision</label
-              ><textarea
-                id="decision-task"
-                placeholder="What should change, and which constraints matter?"
-              ></textarea>
-              <div class="form-row">
-                <div>
-                  <label for="advisor-model">Advisor model</label
-                  ><select id="advisor-model">
-                    <option value="auto">Auto · based on task risk</option>
-                    <option value="gpt-6-luna">GPT-6 Luna</option>
-                    <option value="gpt-6.1-sol">GPT-6.1 Sol</option>
-                    <option value="gpt-6-astra">GPT-6 Astra</option>
-                    <option value="custom">Custom model ID</option></select
-                  ><input
-                    id="advisor-custom"
-                    aria-label="Custom advisor model ID"
-                    placeholder="Model ID"
-                    hidden
-                  />
-                </div>
-                <div>
-                  <label for="codex-model">Codex model</label
-                  ><select id="codex-model">
-                    <option value="gpt-6.1-sol">GPT-6.1 Sol</option>
-                    <option value="gpt-6-luna">GPT-6 Luna</option>
-                    <option value="gpt-6-astra">GPT-6 Astra</option>
-                    <option value="custom">Custom model ID</option></select
-                  ><input
-                    id="codex-custom"
-                    aria-label="Custom Codex model ID"
-                    placeholder="Model ID"
-                    hidden
-                  />
-                </div>
-              </div>
-              <div class="route-reason" id="route-reason" role="status"></div>
-              <div class="row wrap">
-                <button class="primary row" id="prepare-handoff">
-                  <span data-icon="spark"></span>Prepare handoff</button
-                ><button id="copy-handoff" disabled>Copy prompt</button
-                ><button id="download-handoff" disabled>Download packet</button>
-              </div>
-              <div id="handoff-output" hidden>
-                <h3 style="margin-top: 24px">Run locally</h3>
-                <pre id="handoff-command"></pre>
-                <h3>Codex prompt</h3>
-                <pre id="handoff-prompt"></pre>
-              </div>
-              <div class="decision-evidence">
-                <div class="row spread">
-                  <h3>Candidate context</h3>
-                  <span id="context-count" class="muted small"></span>
-                </div>
-                <div id="decision-context"></div>
-              </div>
-            </div>
-            <aside>
-              <div class="decision-result">
-                <h3>Local API connection</h3>
-                <div class="tag">Environment only</div>
-                <p>
-                  Atlas reads <code>OPENAI_API_KEY</code> from your local
-                  shell, or <code>.env.local</code> with
-                  <code>--env-file</code>.
-                </p>
-                <p>
-                  Run <code>atlas decide --live</code> to request a bounded,
-                  cited recommendation. Live chat sends requests through the local server; exported HTML stays offline.
-                </p>
-                <ul>
-                  <li>One request, explicit model.</li>
-                  <li>Preview the context before sharing.</li>
-                  <li>Recommendations stay inferred.</li>
-                </ul>
-              </div>
-              <div id="recent-decisions" style="margin-top: 20px"></div>
-            </aside>
-          </div>
-        </section>
+        <section class="panel" id="view-runs" aria-label="Runs" hidden><div id="run-list" class="journal-list"></div></section>
+        <section class="panel" id="view-memory" aria-label="Memory" hidden><input id="memory-search" type="search" placeholder="Search project memory…" aria-label="Search project memory"/><div id="memory-list" class="journal-list"></div></section>
         <footer class="footer">
           <span id="footer-snapshot"></span
           ><span id="footer-note"
-            >Observed structure · semantic claims need review</span
+            ></span
           >
         </footer>
       </main>
     </div>
-    <aside id="chat-drawer" class="chat-drawer" aria-label="Ask Atlas" hidden><div class="chat-head"><div><strong>Ask Atlas</strong></div><button id="chat-close" class="flat" aria-label="Close chat">×</button></div><div id="chat-messages" class="chat-messages" aria-live="polite"><div class="chat-message assistant">Ask about the graph or preview a route with <code>/codex-atlas TASK="…"</code>.</div></div><form id="chat-form" class="chat-form"><label for="chat-input" class="sr-only">Message to Atlas</label><textarea id="chat-input" rows="3" maxlength="6000" placeholder="Ask about this repository…"></textarea><div class="row spread"><span id="chat-state" class="muted small">Local server</span><button class="primary" type="submit">Send</button></div></form></aside>
+    <aside id="chat-drawer" class="chat-drawer" aria-label="Atlas assistant" hidden>
+      <div class="chat-head"><h2>Assistant</h2><button id="chat-close" class="flat" aria-label="Close chat">×</button></div>
+      <div id="chat-context" class="chat-context" hidden></div>
+      <div id="chat-messages" class="chat-messages" role="log" aria-live="polite"><p class="muted">What would you like to know?</p></div>
+      <form id="chat-form" class="chat-form">
+        <label for="chat-mode" class="sr-only">Assistant action</label>
+        <select id="chat-mode">
+          <option value="ask">Ask a question</option>
+          <option value="task">Implement a task</option>
+          <option value="docs">Write docs</option>
+          <option value="audit">Audit code &amp; docs</option>
+          <option value="organize">Organize documents</option>
+          <option value="memory">Save project memory</option>
+        </select>
+        <label for="chat-input" class="sr-only">Message</label>
+        <textarea id="chat-input" rows="3" maxlength="5500" placeholder="Ask about this project…"></textarea>
+        <div class="row spread"><span id="chat-state" class="muted small" role="status">Read-only</span><button class="primary" type="submit">Ask</button></div>
+      </form>
+      <details class="recent-activity"><summary>Recent activity</summary><div id="recent-decisions"></div></details>
+    </aside>
+    <dialog id="command-dialog" class="command-dialog" aria-labelledby="command-title">
+      <div class="row spread"><h2 id="command-title">Atlas commands</h2><button id="command-close" class="flat" aria-label="Close commands">×</button></div>
+      <div class="command-list">
+        <button data-command="ask"><strong>Ask about this project</strong></button>
+        <button data-command="task"><strong>Implement a task</strong></button>
+        <button data-command="organize"><strong>Organize documents</strong></button>
+        <button data-command="docs"><strong>Write docs</strong></button>
+        <button data-command="audit"><strong>Audit implementation &amp; docs</strong></button>
+        <button id="command-graph">Explore graph</button><button data-command="memory"><strong>Save project memory</strong></button>
+      </div>
+      <details class="cli-skills"><summary>Use in Codex CLI</summary><div id="cli-skill-list"></div></details>
+    </dialog>
     <div id="toast" class="toast" role="status" hidden></div>
     <script>
       ATLAS_D3_DATA;

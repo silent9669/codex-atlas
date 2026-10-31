@@ -24,10 +24,10 @@ class LocalWorkflowTest(unittest.TestCase):
         (self.root / 'app.py').write_text('def run():\n    return 1\n')
         self.graph = index_repository(self.root)
 
-    def test_local_key_file_is_explicit_ignored_and_never_in_graph(self):
+    def test_local_key_file_is_auto_loaded_ignored_and_never_in_graph(self):
         (self.root / '.env.local').write_text('OPENAI_API_KEY="fake-local-key"\nATLAS_ADVISOR_MODEL=gpt-6-luna\n')
         with patch.dict('os.environ', {}, clear=True):
-            self.assertNotIn('OPENAI_API_KEY', settings(self.root))
+            self.assertEqual(settings(self.root)['OPENAI_API_KEY'], 'fake-local-key')
             self.assertEqual(settings(self.root, '.env.local')['OPENAI_API_KEY'], 'fake-local-key')
         self.assertNotIn('fake-local-key', json.dumps(index_repository(self.root)))
         (self.root / 'exposed.env').write_text('OPENAI_API_KEY=fake-key\n')
@@ -63,7 +63,7 @@ class LocalWorkflowTest(unittest.TestCase):
             if argv[0] != 'codex': return real_run(argv, *args, **kwargs)
             seen['env'] = kwargs['env']
             final = pathlib.Path(argv[argv.index('--output-last-message') + 1])
-            final.write_text(json.dumps({k: [] for k in ('assumptions','impact','plan','checks','blocked')}))
+            final.write_text(json.dumps({**{k: [] for k in ('assumptions','impact','plan','checks','blocked')}, 'outcome':'completed'}))
             class Completed:
                 returncode = 0
                 stdout = ''

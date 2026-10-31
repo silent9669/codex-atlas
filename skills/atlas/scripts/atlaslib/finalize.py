@@ -82,9 +82,18 @@ def finalize(root, task, result='completed', result_file=None, note=None, memory
     if marker not in previous:
         memory.write_text(previous.rstrip() + '\n' + entry)
         memory.chmod(0o600)
-    result = {'kind': 'finalize', 'result': result, 'snapshot_hash': graph['snapshot']['hash'],
+    details = {}
+    if raw:
+        try: details = json.loads(raw)
+        except ValueError: pass
+    if not isinstance(details, dict): details = {}
+    for field in ('checks', 'impact'):
+        if not isinstance(details.get(field), list): details[field] = []
+    result = {'task': task, 'checks': [v for v in details.get('checks', []) if isinstance(v, str)][:12],
+            'summary': [v for v in details.get('impact', []) if isinstance(v, str)][:5], 'kind': 'finalize', 'result': result, 'snapshot_hash': graph['snapshot']['hash'],
             'documentation': doc.relative_to(root).as_posix(), 'memory': memory.relative_to(root).as_posix(), 'changed': changed,
-            'recorded_at': now.isoformat()}
+            'recorded_at': now.isoformat(),
+            'source_files': {p: h for p, h in graph['snapshot']['files'].items() if not p.startswith('docs/atlas/updates/')}}
     record.parent.mkdir(exist_ok=True, mode=0o700)
     evidence.write_json(record, result)
     return result

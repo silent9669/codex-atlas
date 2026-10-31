@@ -8,6 +8,11 @@ def cite(node):
 def markdown(report):
     kind = report['kind']
     lines = [f"# Atlas {kind}", '', f"Snapshot: `{report.get('snapshot_hash', 'unavailable')}`", '']
+    if kind in {'categories', 'command'}:
+        lines += [f"Status: **{report['status']}**", report.get('reason', ''), '']
+        if report.get('workspace'): lines += [f"Live graph: {report['workspace']['url']}"]
+        if report.get('categorized') is not None: lines += [f"Categorized: {report['categorized']} · remaining: {report.get('remaining', 0)}"]
+        if report.get('execution', {}).get('finalize'): lines += [markdown(report['execution']['finalize'])]
     if kind == 'context':
         lines += [f"Task: {report['task']}", '', '## Read first', '']
         lines += [f"- {cite(n)} — {n['type']} (lexical candidate; inspect source)" for n in report['nodes']] or ['No lexical matches; inspect repository entry points.']

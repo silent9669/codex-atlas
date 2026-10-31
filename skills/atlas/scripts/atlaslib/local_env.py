@@ -1,4 +1,4 @@
-"""Read only explicitly requested local credentials; never alter global configuration."""
+"""Read repository-local credentials; never alter global configuration."""
 import os
 import pathlib
 import re
@@ -8,7 +8,9 @@ import subprocess
 def settings(root, env_file=None):
     values = {key: os.environ[key] for key in ('OPENAI_API_KEY', 'ATLAS_ADVISOR_MODEL', 'ATLAS_CODEX_MODEL', 'ATLAS_ROUTER_MODEL', 'ATLAS_EXECUTION_MODELS') if key in os.environ}
     if not env_file:
-        return values
+        candidate = root / '.env.local'
+        if not candidate.exists() and not candidate.is_symlink(): return values
+        env_file = '.env.local'
     file = pathlib.Path(env_file)
     if not file.is_absolute():
         file = root / file

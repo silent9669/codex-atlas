@@ -67,7 +67,7 @@ class WorkspaceTest(unittest.TestCase):
         child.assert_not_called()
 
     def test_malformed_router_and_missing_key_are_blocked(self):
-        with patch.dict('os.environ',{},clear=True):
+        with patch.dict('os.environ',{},clear=True), patch('atlaslib.routing.codex_response', side_effect=ValueError('Codex unavailable')):
             self.assertEqual(route(self.root,self.graph,'Explain',live=True)['status'],'blocked')
         with patch.dict('os.environ',{'OPENAI_API_KEY':'fake'},clear=True), patch('atlaslib.routing._call',return_value=[]):
             self.assertEqual(route(self.root,self.graph,'Explain',live=True)['status'],'blocked')
@@ -117,12 +117,22 @@ class WorkspaceTest(unittest.TestCase):
         token=re.search(rb'"token":\s*"([^"]+)"',html).group(1).decode()
         self.assertEqual(request('POST','/api/chat','{}',{'Origin':'https://outside.example','X-Atlas-Token':token,'Content-Type':'application/json'})[0],403)
         self.assertEqual(request('GET','/api/health',headers={'Host':'outside.example'})[0],403)
+        self.assertEqual(request('GET','/api/activity')[0],403)
+        self.assertEqual(request('GET','/api/activity',headers={'X-Atlas-Token':token})[0],200)
         headers={'Origin':f'http://127.0.0.1:{port}','X-Atlas-Token':token,'Content-Type':'application/json'}
         self.assertEqual(request('POST','/api/chat','[]',headers)[0],400)
         self.assertEqual(request('POST','/api/labels',json.dumps({'path':'../outside.md'}),headers)[0],400)
         status,data=request('POST','/api/labels',json.dumps({'path':'decision.md','topics':['architecture']}),headers)
         self.assertEqual(status,200)
         self.assertEqual(json.loads(data)['labels']['origin'],'human-confirmed')
+        status,data=request('POST','/api/chat',json.dumps({'message':'/codex-atlas organize'}),headers)
+        self.assertEqual(status,200)
+        self.assertEqual(json.loads(data)['status'],'preview')
+        status,data=request('POST','/api/chat',json.dumps({'message':'Explain this document','document':'../outside.md'}),headers)
+        self.assertEqual(status,400)
+        status,data=request('POST','/api/chat',json.dumps({'message':'/codex-atlas audit RUN=true ALLOW_EDITS=true'}),headers)
+        self.assertEqual(status,400)
+
 
 
 if __name__=='__main__':unittest.main()

@@ -6,6 +6,7 @@ import uuid
 from . import analysis, evidence
 from .decision import _call, choose_model
 from .local_env import settings
+from .inference import codex_response
 from .graph import inventory
 
 DEFAULT_MODELS = ['gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra']
@@ -52,9 +53,8 @@ def route(root, graph, task, live=False, env_file=None, router_model=None, candi
                               'Routing saves tokens only if measured against an equivalent baseline; no savings are assumed.']}
     if live:
         key = config.get('OPENAI_API_KEY')
-        if not key:
-            result.update(status='blocked', reason='Set OPENAI_API_KEY locally to use the decision router.')
-            return result
+        result['backend'] = 'responses-api' if key else 'codex-cli'
+        if not key: result['limits']['max_output_tokens'] = None
         fields = {'model': {'type': 'string', 'enum': pool}, 'effort': {'type': 'string', 'enum': ['low','medium','high']},
                   'reason': {'type': 'string'}, 'task_type': {'type': 'string', 'enum': ['question','documents','implementation','review']}}
         schema = {'type':'object','properties':fields,'required':list(fields),'additionalProperties':False}
@@ -64,7 +64,7 @@ def route(root, graph, task, live=False, env_file=None, router_model=None, candi
             'text':{'format':{'type':'json_schema','name':'atlas_route','strict':True,'schema':schema}}}
         started=time.monotonic(); result['limits']['requests']=1
         try:
-            body = _call(key, 'responses', payload)
+            body = _call(key, 'responses', payload) if key else codex_response(payload)
             if not isinstance(body, dict):
                 raise ValueError('Routing response was not an object.')
             result['usage']=body.get('usage','unavailable')
@@ -78,14 +78,18 @@ def route(root, graph, task, live=False, env_file=None, router_model=None, candi
             if set(proposed)!=set(fields) or proposed['model'] not in pool or proposed['effort'] not in ('low','medium','high') or proposed['task_type'] not in ('question','documents','implementation','review') or not isinstance(proposed['reason'],str):
                 raise ValueError('Routing response failed validation; no execution was started.')
             result.update(status='routed',routing={k:proposed[k] for k in ('model','effort','reason')},task_type=proposed['task_type'],origin='model-inferred')
-        except (ValueError,TypeError,AttributeError,KeyError,json.JSONDecodeError):
-            result.update(status='blocked',reason='Routing request failed or returned invalid output; no execution was started.')
+        except ValueError as exc:
+            reason = str(exc) if not key and str(exc).startswith(('Codex ', 'Install ')) else 'Routing request failed or returned invalid output.'
+            result.update(status='blocked', reason=reason + ' No execution was started.')
+        except (TypeError,AttributeError,KeyError):
+            result.update(status='blocked',reason='Routing request returned invalid output; no execution was started.')
         result['duration_ms']=round((time.monotonic()-started)*1000)
         if inventory(root)['hash']!=result['snapshot_hash']: result['freshness']='stale'
     return evidence.sanitize(result)
 
 
-def execute(root, graph, task, live=False, env_file=None, run=False, allow_edits=False, model=None):
+def execute(root, graph, task, live=False, env_file=None, run=False, allow_edits=False, model=None, progress=None):
+    if progress: progress('deciding')
     report=route(root,graph,task,live,env_file)
     if report['status']!='blocked' and report['freshness']!='stale':
         chosen=choose_model(task,graph,model) if model else report['routing']
@@ -94,7 +98,8 @@ def execute(root, graph, task, live=False, env_file=None, run=False, allow_edits
             if catalog and model not in catalog:
                 raise ValueError('The requested model is not in the installed Codex catalog.')
         from .handoff import prepare
-        report['execution']=prepare(root,graph,task,chosen['model'],chosen['effort'],run,allow_edits,env_file)
+        if progress: progress('executing' if run else 'preview', model=chosen['model'])
+        report['execution']=prepare(root,graph,task,chosen['model'],chosen['effort'],run,allow_edits,env_file,progress=progress)
     folder=evidence.storage(root)/'routes'
     if folder.is_symlink():raise ValueError('Refusing symlinked route storage.')
     folder.mkdir(exist_ok=True,mode=0o700)

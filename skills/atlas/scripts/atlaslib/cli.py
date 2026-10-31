@@ -10,11 +10,15 @@ from .graph import git, index_repository
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='atlas', description='Local repository context, impact and verification evidence')
     parser.add_argument('--repo', default='.', help='Git repository root (default: current directory)')
-    parser.add_argument('--version', action='version', version='Atlas 0.2.0')
+    parser.add_argument('--version', action='version', version='Atlas 0.5.2')
     commands = parser.add_subparsers(dest='command', required=True)
-    for name in ('setup', 'serve', 'start', 'dispatch', 'label', 'index', 'context', 'impact', 'explain', 'audit', 'documents', 'decide', 'models', 'route', 'codex', 'finalize', 'verify', 'drift', 'review', 'report'):
+    for name in ('setup', 'command', 'serve', 'start', 'dispatch', 'label', 'index', 'context', 'impact', 'explain', 'audit', 'documents', 'organize', 'decide', 'models', 'route', 'codex', 'finalize', 'verify', 'drift', 'review', 'report'):
         command = commands.add_parser(name)
         command.add_argument('--json', action='store_true', help='machine-readable output')
+        if name == 'command':
+            command.add_argument('message')
+            command.add_argument('--env-file')
+            command.add_argument('--open', action='store_true')
         if name == 'context':
             command.add_argument('query')
         if name in {'impact', 'explain'}:
@@ -37,14 +41,17 @@ def main(argv=None):
         if name == 'start':
             command.add_argument('--env-file')
             command.add_argument('--open', action='store_true')
+        if name == 'organize':
+            command.add_argument('--env-file')
         if name == 'label':
             command.add_argument('path')
+            command.add_argument('--category')
             command.add_argument('--kind')
             command.add_argument('--topics', help='comma-separated topic labels')
             command.add_argument('--status')
         if name == 'decide':
             command.add_argument('--model', default='auto')
-            command.add_argument('--live', action='store_true', help='call OpenAI using OPENAI_API_KEY from the local environment')
+            command.add_argument('--live', action='store_true', help='use authenticated Codex CLI or an explicit OPENAI_API_KEY')
             command.add_argument('--env-file', help='explicit ignored local env file; never persisted')
             command.add_argument('--effort', choices=['low', 'medium', 'high'])
             command.add_argument('--max-output-tokens', type=int, default=2400)
@@ -98,6 +105,12 @@ def main(argv=None):
         evidence.write_json(output_folder / 'graph.json', graph)
         if args.command == 'index':
             result = graph
+        elif args.command == 'command':
+            from .workflows import run_command
+            from .live import start
+            live = start(root, args.env_file, args.open)
+            result = run_command(root, graph, args.message, args.env_file)
+            result['workspace'] = live
         elif args.command == 'context':
             result = analysis.context(graph, args.query, root)
         elif args.command == 'impact':
@@ -110,6 +123,9 @@ def main(argv=None):
         elif args.command == 'documents':
             from .documents import inspect
             result = inspect(root, graph)
+        elif args.command == 'organize':
+            from .categories import organize
+            result = organize(root, graph, args.env_file)
         elif args.command == 'decide':
             from .decision import decide
             result = decide(root, graph, args.task, args.model, args.live, args.env_file, args.effort, args.max_output_tokens)
@@ -132,7 +148,7 @@ def main(argv=None):
             result['workspace'] = live
         elif args.command == 'label':
             from .labels import set_label
-            result = set_label(root, graph, args.path, args.kind, args.topics.split(',') if args.topics else None, args.status)
+            result = set_label(root, graph, args.path, args.kind, args.topics.split(',') if args.topics else None, args.status, args.category)
         elif args.command == 'codex':
             from .handoff import prepare
             result = prepare(root, graph, args.task, args.model, args.effort, args.run, args.allow_edits, args.env_file)
@@ -159,6 +175,8 @@ def main(argv=None):
             graph['workspace'] = {'documents': inspect(root, graph), 'audit': summarize(root, graph),
                                   'decisions': decisions, 'launcher': str(pathlib.Path(__file__).resolve().parents[1] / 'atlas'),
                                   'repository_root': str(root)}
+            from .journal import summary
+            graph['workspace'].update(summary(root, graph))
             output = (root / args.output).absolute()
             if not output.resolve().is_relative_to(root):
                 raise ValueError('--output must stay inside the repository root.')
@@ -183,6 +201,10 @@ def main(argv=None):
             print(f'Wrote {output}')
         else:
             print(reports.markdown(result), end='')
+        if args.command == 'command' and result.get('execution', {}).get('result') in {'failed', 'blocked'}:
+            return 1
+        if args.command in {'organize', 'command'} and result.get('status') == 'blocked':
+            return 1
         if args.command == 'verify' and args.run and result['result'] != 'passed':
             return 1
         if args.command == 'codex' and args.run and result['result'] != 'passed':

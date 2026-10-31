@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-atlas",
-  "version": "0.2.0",
+  "version": "0.5.2",
   "description": "Repository graph workspace, document organization, audit evidence and local model decisions for Codex.",
   "author": {
     "name": "silent9669"
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "Codex Atlas",
     "shortDescription": "Graph, document audit and Codex decision workspace",
-    "longDescription": "Codex Atlas is a local repository workspace: inspect a bounded graph, organize decisions and plans, audit extraction and verification evidence, choose an advisor model, and prepare a cited Codex handoff. Optional OpenAI Responses calls use a local environment key, strict structured output, bounded snippets, and no browser credentials.",
+    "longDescription": "Browse documents and repository relationships, ask questions, and route tasks through a small decision model to a separate Codex execution. Uses configured Codex authentication or an explicit OpenAI API key. Successful implementation runs update project documentation and memory.",
     "category": "Developer tools",
     "developerName": "silent9669"
   }

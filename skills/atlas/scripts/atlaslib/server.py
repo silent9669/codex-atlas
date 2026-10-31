@@ -4,6 +4,7 @@ import json
 import pathlib
 import secrets
 import threading
+from contextlib import nullcontext
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 from . import evidence
@@ -17,6 +18,8 @@ def workspace(root, launcher, live=None):
     from .audit import summarize
     graph=evidence.attach(root,index_repository(root))
     graph['workspace']={'documents':inspect(root,graph),'audit':summarize(root,graph),'launcher':str(launcher),'repository_root':str(root),'decisions':[]}
+    from .journal import summary
+    graph['workspace'].update(summary(root, graph))
     folder=evidence.storage(root)
     records=[]
     for name in ('decisions','routes'):
@@ -43,6 +46,9 @@ def serve(root, port=8787, env_file=None):
     token=secrets.token_urlsafe(24)
     lock=threading.Lock()
     labels_lock=threading.Lock()
+    activity = {'stage': 'idle'}
+    def progress(stage, **details):
+        activity.update(stage=stage, **details)
     launcher=pathlib.Path(__file__).resolve().parents[1]/'atlas'
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args): pass
@@ -54,6 +60,9 @@ def serve(root, port=8787, env_file=None):
         def do_GET(self):
             if not self.authorized_host(): return self.send_json(403,{'error':'Invalid workspace host.'})
             if self.path=='/api/health':return self.send_json(200,{'repository_id':digest(str(root)),'runtime_id':running_id,'status':'ready'})
+            if self.path == '/api/activity':
+                if not hmac.compare_digest(self.headers.get('X-Atlas-Token',''),token): return self.send_json(403, {'error':'Workspace token required.'})
+                return self.send_json(200, dict(activity))
             if self.path not in ('/','/api/graph'):return self.send_json(404,{'error':'Not found.'})
             with labels_lock:
                 graph=workspace(root,launcher,{'token':token,'endpoint':'/api/chat'})
@@ -80,19 +89,22 @@ def serve(root, port=8787, env_file=None):
                     from .labels import set_label
                     with labels_lock:
                         graph=index_repository(root)
-                        return self.send_json(200,set_label(root,graph,payload.get('path',''),payload.get('kind'),payload.get('topics'),payload.get('status')))
+                        return self.send_json(200,set_label(root,graph,payload.get('path',''),payload.get('kind'),payload.get('topics'),payload.get('status'),payload.get('category')))
                 message=payload.get('message','')
                 if not isinstance(message,str) or not message.strip() or len(message)>6000:raise ValueError()
             except (ValueError,TypeError,OSError):return self.send_json(400,{'error':'Use a valid document path and labels.' if self.path=='/api/labels' else 'A message of 1–6000 characters is required.'})
             if not lock.acquire(blocking=False):return self.send_json(409,{'error':'Another workspace request is running.'})
             try:
+                activity.clear(); activity.update(stage='reading', task=evidence.redact(message)[:300], started_at=evidence.now())
                 graph=index_repository(root)
                 if message.split()[0]=='/codex-atlas':
-                    from .routing import execute
+                    from .workflows import run_command
                     from .command import parse
-                    task,options=parse(message)
-                    result=execute(root,graph,task,live=True,env_file=env_file,**options)
-                    reply=result.get('reason') or f"Route: {result['routing']['model']} ({result['routing']['effort']}). {result['routing']['reason']}"
+                    _, options = parse(message)
+                    with labels_lock if options.get('action') == 'organize' else nullcontext():
+                        result=run_command(root,graph,message,env_file,progress=progress)
+                    route=result.get('routing',{})
+                    reply=result.get('reason') or f"Route: {route.get('model')} ({route.get('effort')}). {route.get('reason')}"
                     if result.get('execution'):
                         execution=result['execution']
                         reply+='\n\nCodex: '+execution['result']+'.'
@@ -103,10 +115,13 @@ def serve(root, port=8787, env_file=None):
                             if items:reply+='\n\n'+title.capitalize()+':\n'+'\n'.join('- '+item for item in items[:8])
                 else:
                     from .decision import decide
-                    result=decide(root,graph,message,live=True,env_file=env_file)
+                    result=decide(root,graph,message,live=True,env_file=env_file,document=payload.get('document'))
                     reply=result.get('advisor',{}).get('recommendation') or result.get('reason','No recommendation returned.')
+                activity.update(stage='finished', result=(result.get('execution') or {}).get('result', result.get('status')))
                 self.send_json(200,{'reply':reply,'status':result.get('status'),'citations':result.get('evidence_paths',[]),'routing':result.get('routing') if result.get('status') not in {'blocked'} else None,'usage':result.get('usage','unavailable'),'execution':result.get('execution')})
-            except (ValueError,OSError):self.send_json(400,{'error':'Workspace request could not complete. Inspect the local environment and source state.'})
+            except (ValueError,OSError):
+                activity.update(stage='finished', result='blocked')
+                self.send_json(400,{'error':'Workspace request could not complete. Inspect the local environment and source state.'})
             finally:lock.release()
     server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
     print(f'Atlas workspace: http://127.0.0.1:{server.server_port}/',flush=True)

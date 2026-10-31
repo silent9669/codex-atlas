@@ -24,7 +24,7 @@ def automatic(path, text, kind):
                           ('approved',r'(?m)^(?:status|trạng thái)\s*[:|].*(?:approved|đã duyệt|accepted)'),
                           ('draft',r'(?m)^(?:status|trạng thái)\s*[:|].*(?:draft|proposed|đề xuất|nháp)')]:
         if re.search(pattern,first_lines): status=name;break
-    return {'kind':kind,'topics':topics[:5] or ['general'],'status':status,'origin':'rule-inferred'}
+    return {'kind':kind,'topics':topics[:5] or ['general'],'status':status,'origin':'rule-inferred','category':kind.replace('-', ' ').title(),'category_origin':'rule-inferred'}
 
 
 def apply(root, documents):
@@ -39,6 +39,10 @@ def apply(root, documents):
         if override.get('origin')=='human-confirmed':
             label={k:override.get(k,label[k]) for k in label}
             label['freshness']='current' if override.get('content_hash')==document['content_hash'] else 'stale'
+        if override.get('category_origin') in {'model-inferred', 'human-confirmed'}:
+            for field in ('category', 'category_origin', 'category_hash'):
+                if field in override: label[field] = override[field]
+            label['category_freshness'] = 'current' if label.get('category_hash') == document['content_hash'] else 'stale'
         label.update(content_hash=override.get('content_hash') if override.get('origin')=='human-confirmed' else document['content_hash'])
         document['labels']=label
         labels[document['path']]=label
@@ -46,7 +50,7 @@ def apply(root, documents):
     return labels
 
 
-def set_label(root, graph, path, kind=None, topics=None, status=None):
+def set_label(root, graph, path, kind=None, topics=None, status=None, category=None):
     if not isinstance(path,str): raise ValueError('Document path must be a string.')
     if path not in graph['snapshot']['files'] or not path.lower().endswith(('.md','.mdx','.txt')):
         raise ValueError('Only indexed text documents can be labeled.')
@@ -63,6 +67,9 @@ def set_label(root, graph, path, kind=None, topics=None, status=None):
     if status is not None:
         if not isinstance(status,str) or status not in {'unclassified','draft','approved','superseded','needs-review'}:raise ValueError('Unsupported status label.')
         value['status']=status
+    if category is not None:
+        if not isinstance(category,str) or not re.fullmatch(r'[\w][\w &/\-]{0,47}',category): raise ValueError('Use a category name of 1–48 letters, numbers, spaces or separators.')
+        value.update(category=category,category_origin='human-confirmed',category_hash=graph['snapshot']['files'][path],category_freshness='current')
     value.update(origin='human-confirmed',content_hash=graph['snapshot']['files'][path],freshness='current')
     labels[path]=value;evidence.write_json(file,labels)
     return {'kind':'label','path':path,'labels':value}

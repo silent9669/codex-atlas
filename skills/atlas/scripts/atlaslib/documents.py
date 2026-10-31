@@ -1,6 +1,7 @@
 import re
 from collections import Counter
 from .graph import SECRET
+from .evidence import redact
 
 
 def classify(path, text):
@@ -39,7 +40,7 @@ def inspect(root, graph):
                 headings.append({'title': match.group(1).strip(), 'line': line_no})
             links.extend({'target': m.group(1), 'line': line_no} for m in re.finditer(r'\[[^]]+\]\(([^)]+)\)', line))
         docs.append({'path': path, 'type': classify(path, text), 'headings': headings, 'links': links,
-                     'content_hash': content_hash, 'line_count': len(text.splitlines()),
+                     'content_hash': content_hash, 'line_count': len(text.splitlines()), 'excerpt': redact(text[:16000]), 'excerpt_truncated': len(text) > 16000,
                      'signals': {'has_title': bool(headings), 'has_acceptance': bool(re.search(r'(?i)acceptance|done when|success criteria|cách kiểm|kiểm thử|tiêu chí|nghiệm thu|điều kiện đạt|test:', text)),
                                  'has_owner': bool(re.search(r'(?i)owner|maintainer|responsible|phụ trách|người chịu trách nhiệm', text)),
                                  'has_status': bool(re.search(r'(?i)status|draft|proposed|approved|deprecated|trạng thái|đề xuất|đã duyệt', text))}})
