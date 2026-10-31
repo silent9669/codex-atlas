@@ -10,15 +10,61 @@ from .graph import git, index_repository
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='atlas', description='Local repository context, impact and verification evidence')
     parser.add_argument('--repo', default='.', help='Git repository root (default: current directory)')
-    parser.add_argument('--version', action='version', version='Atlas 0.1.0')
+    parser.add_argument('--version', action='version', version='Atlas 0.2.0')
     commands = parser.add_subparsers(dest='command', required=True)
-    for name in ('setup', 'index', 'context', 'impact', 'explain', 'verify', 'drift', 'review', 'report'):
+    for name in ('setup', 'serve', 'start', 'dispatch', 'label', 'index', 'context', 'impact', 'explain', 'audit', 'documents', 'decide', 'models', 'route', 'codex', 'finalize', 'verify', 'drift', 'review', 'report'):
         command = commands.add_parser(name)
         command.add_argument('--json', action='store_true', help='machine-readable output')
         if name == 'context':
             command.add_argument('query')
         if name in {'impact', 'explain'}:
             command.add_argument('target')
+        if name in {'decide', 'codex', 'route', 'dispatch'}:
+            command.add_argument('task')
+        if name == 'route':
+            command.add_argument('--live', action='store_true')
+            command.add_argument('--run', action='store_true')
+            command.add_argument('--allow-edits', action='store_true')
+            command.add_argument('--env-file')
+            command.add_argument('--model', help='explicit execution-model override')
+        if name == 'dispatch':
+            command.add_argument('--run', action='store_true')
+            command.add_argument('--allow-edits', action='store_true')
+            command.add_argument('--env-file')
+            command.add_argument('--model')
+            command.add_argument('--offline', action='store_true')
+            command.add_argument('--open', action='store_true')
+        if name == 'start':
+            command.add_argument('--env-file')
+            command.add_argument('--open', action='store_true')
+        if name == 'label':
+            command.add_argument('path')
+            command.add_argument('--kind')
+            command.add_argument('--topics', help='comma-separated topic labels')
+            command.add_argument('--status')
+        if name == 'decide':
+            command.add_argument('--model', default='auto')
+            command.add_argument('--live', action='store_true', help='call OpenAI using OPENAI_API_KEY from the local environment')
+            command.add_argument('--env-file', help='explicit ignored local env file; never persisted')
+            command.add_argument('--effort', choices=['low', 'medium', 'high'])
+            command.add_argument('--max-output-tokens', type=int, default=2400)
+        if name == 'models':
+            command.add_argument('--env-file', help='explicit ignored local env file; never persisted')
+            command.add_argument('--live', action='store_true', help='query OpenAI model visibility')
+        if name == 'codex':
+            command.add_argument('--model', default='auto', help='explicit Codex model ID or risk-based auto route')
+            command.add_argument('--effort', choices=['low', 'medium', 'high'])
+            command.add_argument('--run', action='store_true', help='launch a new Codex invocation; preview is default')
+            command.add_argument('--allow-edits', action='store_true', help='workspace-write for this explicitly launched invocation')
+            command.add_argument('--env-file', help='ignored local env file for this invocation only')
+        if name == 'finalize':
+            command.add_argument('task')
+            command.add_argument('--result', default='completed', choices=['completed', 'failed', 'blocked', 'cancelled'])
+            command.add_argument('--result-file')
+            command.add_argument('--note')
+        if name == 'serve':
+            command.add_argument('--port', type=int, default=8787)
+            command.add_argument('--env-file')
         if name == 'verify':
             command.add_argument('target', nargs='?', help='related claim or path; all reviewed map checks run')
             command.add_argument('--commands', help='reviewed JSON command map; relative to repository root')
@@ -36,6 +82,17 @@ def main(argv=None):
             plugin = pathlib.Path(__file__).resolve().parents[4]
             completed = subprocess.run(['npm', 'ci', '--ignore-scripts', '--prefix', str(plugin)])
             return completed.returncode
+        if args.command == 'serve':
+            from .server import serve
+            serve(root, args.port, args.env_file)
+            return 0
+        if args.command == 'start':
+            from .live import start
+            from .documents import inspect
+            inspect(root, index_repository(root))
+            result = start(root, args.env_file, args.open)
+            print(json.dumps(result) if args.json else result['url'])
+            return 0
         graph = evidence.attach(root, index_repository(root))
         output_folder = evidence.storage(root)
         evidence.write_json(output_folder / 'graph.json', graph)
@@ -47,6 +104,38 @@ def main(argv=None):
             result = analysis.impact(graph, args.target)
         elif args.command == 'explain':
             result = analysis.explain(graph, args.target)
+        elif args.command == 'audit':
+            from .audit import summarize
+            result = summarize(root, graph)
+        elif args.command == 'documents':
+            from .documents import inspect
+            result = inspect(root, graph)
+        elif args.command == 'decide':
+            from .decision import decide
+            result = decide(root, graph, args.task, args.model, args.live, args.env_file, args.effort, args.max_output_tokens)
+        elif args.command == 'models':
+            from .decision import models
+            result = models(root, args.env_file) if args.live else {'kind': 'models', 'status': 'not-run', 'models': [], 'reason': 'Pass --live to query OpenAI using the local environment.'}
+        elif args.command == 'finalize':
+            from .finalize import finalize
+            result = finalize(root, args.task, args.result, args.result_file, args.note)
+        elif args.command == 'route':
+            from .routing import execute
+            result = execute(root, graph, args.task, args.live, args.env_file, args.run, args.allow_edits, args.model)
+        elif args.command == 'dispatch':
+            from .live import start
+            from .documents import inspect
+            from .routing import execute
+            inspect(root, graph)
+            live = start(root, args.env_file, args.open)
+            result = execute(root, graph, args.task, not args.offline, args.env_file, args.run, args.allow_edits, args.model)
+            result['workspace'] = live
+        elif args.command == 'label':
+            from .labels import set_label
+            result = set_label(root, graph, args.path, args.kind, args.topics.split(',') if args.topics else None, args.status)
+        elif args.command == 'codex':
+            from .handoff import prepare
+            result = prepare(root, graph, args.task, args.model, args.effort, args.run, args.allow_edits, args.env_file)
         elif args.command == 'verify':
             result = evidence.verify(root, graph, args.commands, args.run, args.target, args.model, args.task_id)
             graph = evidence.attach(root, index_repository(root))
@@ -59,6 +148,17 @@ def main(argv=None):
                 result.update(kind='review', changed=sorted(p for p in changed if p and not p.startswith('.atlas/')))
         else:
             from .viewer import render
+            from .documents import inspect
+            from .audit import summarize
+            decisions = []
+            for path in sorted((output_folder / 'decisions').glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:5]:
+                if not path.is_symlink():
+                    record = json.loads(path.read_text())
+                    record['freshness'] = 'current' if record.get('snapshot_hash') == graph['snapshot']['hash'] else 'stale'
+                    decisions.append(record)
+            graph['workspace'] = {'documents': inspect(root, graph), 'audit': summarize(root, graph),
+                                  'decisions': decisions, 'launcher': str(pathlib.Path(__file__).resolve().parents[1] / 'atlas'),
+                                  'repository_root': str(root)}
             output = (root / args.output).absolute()
             if not output.resolve().is_relative_to(root):
                 raise ValueError('--output must stay inside the repository root.')
@@ -69,6 +169,11 @@ def main(argv=None):
                 raise ValueError('Refusing symlinked HTML output.')
             render(graph, output)
             result = {'kind': 'report', 'output': str(output)}
+        if args.command in {'route','dispatch','codex'} and args.run:
+            from .documents import inspect
+            refreshed=evidence.attach(root,index_repository(root))
+            inspect(root,refreshed)
+            evidence.write_json(output_folder/'graph.json',refreshed)
         result.setdefault('snapshot_hash', graph['snapshot']['hash'])
         if args.json:
             print(json.dumps(result, indent=2, ensure_ascii=False))
@@ -79,6 +184,16 @@ def main(argv=None):
         else:
             print(reports.markdown(result), end='')
         if args.command == 'verify' and args.run and result['result'] != 'passed':
+            return 1
+        if args.command == 'codex' and args.run and result['result'] != 'passed':
+            return 1
+        if args.command in {'route','dispatch'} and result.get('status') in {'blocked'}:
+            return 1
+        if args.command in {'route','dispatch'} and (result.get('freshness') == 'stale' or (args.run and result.get('execution', {}).get('result') != 'passed')):
+            return 1
+        if args.command == 'decide' and args.live and (result['status'] != 'returned' or result['freshness'] != 'current'):
+            return 1
+        if args.command == 'models' and args.live and result['status'] != 'available':
             return 1
         return 0
     except (ValueError, OSError, json.JSONDecodeError) as exc:

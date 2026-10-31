@@ -65,6 +65,8 @@ def context(graph, query, root, limit=12):
         if score:
             scored.append((score, node))
     scored.sort(key=lambda item: (-item[0], item[1]['path']))
+    if not scored:
+        scored = [(0, node) for node in graph['nodes'] if node.get('id', '').startswith('file:') and node.get('type') in {'decision', 'plan', 'source', 'api', 'ui', 'test'}]
     selected = []
     # Keep independent repository layers represented before filling by lexical relevance.
     for kinds in ({'decision'}, {'plan'}, {'source'}, {'ui'}, {'test'}):

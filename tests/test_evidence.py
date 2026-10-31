@@ -23,4 +23,7 @@ class EvidenceTest(unittest.TestCase):
             render({'nodes': [{'label': '</script><script>alert(1)</script>'}]}, output)
             html = output.read_text()
             self.assertNotIn('</script><script>alert(1)</script>', html)
-            self.assertNotIn('innerHTML', html)
+            # Atlas never uses HTML sinks for repository data. Vendored D3 contains
+            # generic DOM helpers, which this viewer does not call.
+            self.assertNotIn('innerHTML', (pathlib.Path(__file__).resolve().parents[1] / 'skills/atlas/scripts/atlaslib/viewer.js').read_text())
+            self.assertIn('\\u003c/script', html)

@@ -1,8 +1,8 @@
 // Parse syntax without evaluating repository code or running package scripts.
 const fs = require('node:fs');
 const path = require('node:path');
-const { root, paths } = JSON.parse(fs.readFileSync(0, 'utf8'));
-const allowed = new Set(paths);
+const { root, paths, files } = JSON.parse(fs.readFileSync(0, 'utf8'));
+const allowed = new Set(files || paths);
 const result = {};
 const ts = require('typescript');
 for (const relative of paths) {
@@ -17,8 +17,9 @@ for (const relative of paths) {
     record.symbols.push({ symbol: name + (count ? `:${count}` : ''), type, line: line(n), end_line: source.getLineAndCharacterOfPosition(n.end).line + 1 });
   }
   function importModule(n, module) {
-    const resolved = ts.resolveModuleName(module, filename, { moduleResolution: ts.ModuleResolutionKind.Bundler, allowJs: true, jsx: ts.JsxEmit.Preserve }, ts.sys).resolvedModule;
-    const local = resolved && path.relative(root, resolved.resolvedFileName).split(path.sep).join('/');
+    const resolved = ts.resolveModuleName(module, filename, { moduleResolution: ts.ModuleResolutionKind.Bundler, resolveJsonModule: true, allowJs: true, jsx: ts.JsxEmit.Preserve }, ts.sys).resolvedModule;
+    const exact = module.startsWith('.') ? path.resolve(path.dirname(filename), module) : '';
+    const local = path.relative(root, resolved ? resolved.resolvedFileName : exact).split(path.sep).join('/');
     record.imports.push({ module, local: module.startsWith('.'), resolved: allowed.has(local) ? local : null, line: line(n) });
   }
   function visit(n, prefix = '') {

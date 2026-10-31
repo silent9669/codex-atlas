@@ -31,7 +31,12 @@ def safe_path(root, path):
     if any(p in EXCLUDED_PARTS or SECRET.search(p) for p in relative.parts):
         return False
     dest = root / path
-    return not any(p.is_symlink() for p in [dest, *dest.parents]) and dest.is_file()
+    parents = [dest]
+    parent = dest.parent
+    while parent != root and parent != parent.parent:
+        parents.append(parent)
+        parent = parent.parent
+    return not any(p.is_symlink() for p in parents) and dest.is_file()
 
 
 def inventory(root):
@@ -41,7 +46,12 @@ def inventory(root):
         if path and safe_path(root, path):
             hashes[path] = digest((root / path).read_bytes())
     commit = git(root, "rev-parse", "HEAD").strip() or None
-    return {"commit": commit, "files": hashes, "hash": digest({"commit": commit, "files": hashes})}
+    remote = git(root, 'remote', 'get-url', 'origin').strip()
+    remote_path = urlsplit(remote).path if remote else ''
+    if not remote_path and ':' in remote and '@' in remote:
+        remote_path = remote.rsplit(':', 1)[-1]
+    repository = pathlib.PurePosixPath(remote_path).name.removesuffix('.git') if remote_path else root.name
+    return {"repository": repository, "commit": commit, "files": hashes, "hash": digest({"commit": commit, "files": hashes})}
 
 
 def file_type(path):
@@ -141,7 +151,7 @@ def index_repository(root, history_limit=20):
             diagnostics.append({"kind": "size-limit", "path": path, "message": "Hash retained; extraction skipped above 1 MB."})
             continue
         suffix = pathlib.PurePosixPath(path).suffix.lower()
-        if suffix not in {".py", ".md", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".yml", ".yaml", ".toml", ".sh"}:
+        if suffix not in {".py", ".md", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".yml", ".yaml", ".toml", ".sh", ".css", ".html"}:
             continue
         identifier = node(path, file_type(path))
         try:
@@ -178,6 +188,9 @@ def index_repository(root, history_limit=20):
                         if target in snapshot["files"]:
                             edge(identifier, f"file:{target}", "references", path, line_num,
                                  "Explicit local Markdown link; does not establish implementation.", "explicit")
+                        elif target_path.is_dir() and not target_path.is_symlink():
+                            # A directory link is valid navigation, not a file-level semantic edge.
+                            continue
                         else:
                             diagnostics.append({"kind": "broken-link", "path": path, "line": line_num, "target": target, "message": "Local link target is absent or excluded; relationship needs review."})
         except (SyntaxError, UnicodeError) as exc:
@@ -185,7 +198,7 @@ def index_repository(root, history_limit=20):
 
     if ts_paths:
         try:
-            run = subprocess.run(["node", str(SCRIPT_ROOT / "typescript.cjs")], input=json.dumps({"root": str(root), "paths": ts_paths}), capture_output=True, text=True, timeout=60)
+            run = subprocess.run(["node", str(SCRIPT_ROOT / "typescript.cjs")], input=json.dumps({"root": str(root), "paths": ts_paths, "files": list(snapshot["files"])}), capture_output=True, text=True, timeout=60)
             if run.returncode:
                 raise ValueError("TypeScript compiler extractor unavailable; run npm ci at plugin root.")
             records.update(json.loads(run.stdout))

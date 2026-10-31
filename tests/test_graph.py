@@ -91,6 +91,17 @@ class RepositoryTest(unittest.TestCase):
         report = impact(index_repository(self.root), "app/guard.py")
         self.assertFalse(any(n["path"] == "unrelated.py" for n in report["indirect"]))
 
+    def test_directory_links_and_asset_imports_are_resolved(self):
+        self.fixture()
+        self.write('docs/index.md', '# Docs\n[decisions](decisions/)\nSee `../app/guard.py`.\n')
+        self.write('web/style.css', 'body { color: black; }')
+        self.write('web/data.json', '{"value":1}')
+        self.write('web/assets.ts', "import './style.css';\nimport data from './data.json';\n")
+        graph = index_repository(self.root)
+        self.assertFalse(any(d['kind'] == 'broken-link' and d['path'] == 'docs/index.md' for d in graph['diagnostics']))
+        self.assertFalse(any(d['kind'] == 'unresolved-import' and d['path'] == 'web/assets.ts' for d in graph['diagnostics']))
+        self.assertTrue(any(e['type'] == 'depends_on' and e['target'] == 'file:web/style.css' for e in graph['edges']))
+
 
 if __name__ == "__main__":
     unittest.main()

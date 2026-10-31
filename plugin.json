@@ -1,13 +1,15 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-atlas",
-  "version": "0.1.0",
-  "description": "Local repository graphs, cited Codex context, impact analysis, and verification evidence.",
-  "author": {"name": "silent9669"},
+  "version": "0.2.0",
+  "description": "Repository graph workspace, document organization, audit evidence and local model decisions for Codex.",
+  "author": {
+    "name": "silent9669"
+  },
   "interface": {
     "displayName": "Codex Atlas",
-    "shortDescription": "Repository context and evidence graphs",
-    "longDescription": "Build a bounded, evidence-aware repository graph that helps Codex inspect decisions, plans, source, APIs, UI, tests, commits, checks, and drift. Atlas is local-first and labels observations, inferences, freshness, and blocked prerequisites separately.",
+    "shortDescription": "Graph, document audit and Codex decision workspace",
+    "longDescription": "Codex Atlas is a local repository workspace: inspect a bounded graph, organize decisions and plans, audit extraction and verification evidence, choose an advisor model, and prepare a cited Codex handoff. Optional OpenAI Responses calls use a local environment key, strict structured output, bounded snippets, and no browser credentials.",
     "category": "Developer tools",
     "developerName": "silent9669"
   }

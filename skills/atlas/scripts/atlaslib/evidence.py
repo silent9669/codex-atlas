@@ -19,7 +19,7 @@ def runtime():
         node = subprocess.run(['node', '--version'], capture_output=True, text=True, timeout=5).stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
         node = 'unavailable'
-    return {'python': platform.python_version(), 'node': node, 'platform': platform.system(), 'atlas': '0.1.0'}
+    return {'python': platform.python_version(), 'node': node, 'platform': platform.system(), 'atlas': '0.2.0'}
 
 
 def redact(value):

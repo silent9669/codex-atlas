@@ -11,6 +11,8 @@ Use Atlas for repository reasoning before and after an explicitly authorized cod
 
 Prerequisites: Python 3.11+, Node 20+, and the pinned TypeScript compiler. After a plugin installation or update, run `python3 <atlas-plugin>/skills/atlas/scripts/atlas setup` once to install the lockfile dependency at the plugin root (`npm ci --ignore-scripts`). This downloads TypeScript from npm without running package lifecycle scripts. If setup is unavailable, report TS extraction as blocked; do not substitute regex output for AST facts.
 
+Use `$codex-atlas` for the complete routing workflow. Codex CLI can load the optional `/prompts:codex-atlas` command after the source prompt is copied to the user prompts directory; the prompt parses TASK/MODEL/RUN/ALLOW_EDITS and starts the live workspace when requested. The optional live advisor reads `OPENAI_API_KEY` from the local process environment or an explicitly supplied untracked, Git-ignored `--env-file`. Never place a key in graph JSON, browser HTML, command maps, prompts, evidence, or repository files. Run `atlas models --live` for model visibility, then `atlas decide "<task>" --live --model auto`. The advisor uses one bounded structured Responses API request; its recommendation is inferred and must not authorize edits. Use `atlas codex "<task>"` to generate a separate read-only Codex handoff with an explicit model and output schema.
+
 1. Read the applicable `AGENTS.md` files and inspect `git status`, branch, and repository root.
 2. Refresh the graph for the current commit and working tree:
 
@@ -82,3 +84,8 @@ When using Atlas in a response, distinguish:
 - **Blocked**: check could not run because a prerequisite was unavailable.
 
 Always cite repository-relative paths and symbols. State the snapshot and commands used. Do not claim that Atlas proves an entire product requirement or runtime integration.
+
+
+## Live workspace and auto-labeling
+
+Run `atlas --repo . start --open --env-file .env.local` to open the single graph workspace with the local Ask Atlas drawer. The CLI refreshes the graph before each report; use `atlas documents` to classify documents and detect headings/status/acceptance signals. `/prompts:codex-atlas TASK="…" RUN=false` previews the workspace and read-only handoff. `RUN=true ALLOW_EDITS=true` explicitly launches the child Codex invocation and finalizes project-local docs and `.atlas/memory.md` after a passing implementation result. The live graph polls the source every seven seconds; a read-only question never generates a feature completion note.
