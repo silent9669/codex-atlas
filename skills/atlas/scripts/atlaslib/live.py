@@ -14,7 +14,7 @@ from .graph import digest
 def runtime_id(env_file=None):
     folder=pathlib.Path(__file__).parent
     return digest({'files':{p.name:digest(p.read_bytes()) for p in folder.iterdir() if p.suffix in {'.py','.html','.css','.js'}},
-                   'env_file':str(env_file) if env_file else None, 'environment_key':bool(os.environ.get('OPENAI_API_KEY'))})
+                   'env_file':str(env_file) if env_file else None, 'env_hash':digest(pathlib.Path(env_file).read_bytes()) if env_file and pathlib.Path(env_file).is_file() else None, 'environment_key':bool(os.environ.get('OPENAI_API_KEY'))})
 
 
 def start(root, env_file=None, open_browser=False):
