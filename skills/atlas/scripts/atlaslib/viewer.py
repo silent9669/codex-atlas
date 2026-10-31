@@ -13,6 +13,8 @@ def render(graph, output):
     css = pathlib.Path(__file__).with_name('viewer.css').read_text()
     font = (pathlib.Path(__file__).parent / 'assets/plex-sans.woff2').read_bytes()
     css = css.replace('ATLAS_FONT_DATA', base64.b64encode(font).decode())
+    vietnamese_font = (pathlib.Path(__file__).parent / 'assets/plex-sans-vietnamese.woff2').read_bytes()
+    css = css.replace('ATLAS_VIETNAMESE_FONT_DATA', base64.b64encode(vietnamese_font).decode())
     js = pathlib.Path(__file__).with_name('viewer.js').read_text()
     d3 = (pathlib.Path(__file__).parent / 'assets/d3.min.js').read_text()
     if output.is_symlink():
