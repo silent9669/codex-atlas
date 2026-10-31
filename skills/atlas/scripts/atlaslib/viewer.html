@@ -39,6 +39,7 @@ function show(n){
   selected=n.id;el('title').textContent=n.label;el('detail').replaceChildren();el('edges').replaceChildren();
   append(el('detail'),'p',n.path ? `${n.path}:${n.line}` : n.id);
   append(el('detail'),'span',n.type+' · observed structure','status');
+  if(n.result)append(el('detail'),'p',`Result: ${n.result} · Freshness: ${n.freshness}`,'status');
   append(el('detail'),'p','Content '+(n.content_hash||'unavailable'),'hash');
   const edges=graph.edges.filter(e=>e.source===n.id||e.target===n.id);
   append(el('detail'),'h3',`Relationships (${edges.length})`);
